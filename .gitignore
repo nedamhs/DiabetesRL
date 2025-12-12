@@ -1,27 +1,15 @@
+logs*/
+
+*.csv
+*.zip
+*.pt 
+*.png
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
-
-# Python virtual environments
-rl_env/
-venv/
-.env/
-
-# Python cache
-__pycache__/
-*.pyc
-
-# OS files
-.DS_Store
-
-# Logs and temp files
-*.log
-*.tmp
-*.bak
-
-# VSCode settings (optional)
-.vscode/
 
 # C extensions
 *.so
@@ -225,7 +213,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-PPO_Variants.ipynb
+
+requirements_full.txt
 PPO_Variants_old.ipynb
-PPO_Variants.ipynb
+ppo_stacked_2025-12-11_10-40.zip
 PPO_Variants.ipynb
