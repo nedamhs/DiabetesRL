@@ -218,3 +218,6 @@ requirements_full.txt
 PPO_Variants_old.ipynb
 ppo_stacked_2025-12-11_10-40.zip
 PPO_Variants.ipynb
+eval.ipynb
+.DS_Store
+.DS_Store
