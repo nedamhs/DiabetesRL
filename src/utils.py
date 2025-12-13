@@ -312,4 +312,103 @@ def evaluate_survival(policy_type, make_env_fn, model=None,  n_episodes=20, cons
 
     mean_steps = lengths.mean()
     mean_minutes = mean_steps * 3
-    mean_h
+    mean_hours = mean_minutes / 60
+
+    print(f"\n=== Survival results: {title} ===")
+    print(f"Episodes: {n_episodes}")
+    print(
+        f"Mean steps: {mean_steps:.1f} "
+        f"({mean_minutes:.1f} min, {mean_hours:.2f} hours)"
+    )
+    print(f"Std steps:  {lengths.std():.1f}")
+    print(f"Min steps:  {lengths.min():.0f}")
+    print(f"Max steps:  {lengths.max():.0f}")
+
+    return lengths
+
+
+# ============================= functions for cross patient generalization test  ==================
+
+def rollout_one_patient( model, patient_name, make_env_fn, max_minutes=24*60,):
+    """
+    make_env_fn: function(patient_name) -> env
+      e.g. lambda p: make_env_stacked_for_patient(p, k=4, render=False)
+    """
+    env = make_env_fn(patient_name)
+    obs, info = env.reset(seed=SEED)
+
+    bg_list = []
+    act_list = []
+
+    max_steps = max_minutes // 3  # 3 min per step
+
+    for t in range(max_steps):
+        action, _ = model.predict(obs, deterministic=True)
+
+        obs, reward, terminated, truncated, info = env.step(action)
+        episode_done = bool(terminated or truncated)
+
+        bg = float(info.get("bg", np.nan))
+        bg_list.append(bg)
+
+        act_list.append(float(np.array(action).flatten()[0]))
+
+        if episode_done:
+            break
+
+    bg_arr = np.array(bg_list, dtype=float)
+    act_arr = np.array(act_list, dtype=float)
+
+    TIR = np.mean((bg_arr >= 70) & (bg_arr <= 180)) * 100
+    TBR = np.mean(bg_arr < 70) * 100
+    TAR = np.mean(bg_arr > 180) * 100
+
+    stats = {
+        "steps": int(len(bg_arr)),
+        "hours": float(len(bg_arr) * 3 / 60.0),
+        "Mean BG": float(np.mean(bg_arr)) if len(bg_arr) else np.nan,
+        "TIR%": float(TIR),
+        "TBR%": float(TBR),
+        "TAR%": float(TAR),
+    }
+    return bg_arr, act_arr, stats
+
+
+
+
+def eval_group(model, patient_ids, make_env_fn):
+    out = []
+    for pid in patient_ids:
+        bg, act, stats = rollout_one_patient(model=model, patient_name=pid, make_env_fn=make_env_fn )
+        out.append((pid, stats))
+    return out
+
+
+
+
+def summarize_group(stats_list, name):
+        # stats_list: list of (patient_id, stats_dict)
+        tir = np.array([s["TIR%"] for _, s in stats_list], dtype=float)
+        tbr = np.array([s["TBR%"] for _, s in stats_list], dtype=float)
+        tar = np.array([s["TAR%"] for _, s in stats_list], dtype=float)
+        steps = np.array([s["steps"] for _, s in stats_list], dtype=float)
+        hours = steps * 3 / 60
+
+        print(f"\n=== {name} (n={len(stats_list)}) ===")
+        print(f"Mean survival: {steps.mean():.1f} steps ({hours.mean():.2f} hours)")
+        print(f"TIR%: {tir.mean():.2f} ± {tir.std():.2f}")
+        print(f"TBR%: {tbr.mean():.2f} ± {tbr.std():.2f}")
+        print(f"TAR%: {tar.mean():.2f} ± {tar.std():.2f}")
+
+        return {
+            "group": name,
+            "n": len(stats_list),
+            "mean_steps": steps.mean(),
+            "mean_hours": hours.mean(),
+            "mean_TIR": tir.mean(),
+            "std_TIR": tir.std(),
+            "mean_TBR": tbr.mean(),
+            "std_TBR": tbr.std(),
+            "mean_TAR": tar.mean(),
+            "std_TAR": tar.std(),
+        }

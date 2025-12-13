@@ -13,7 +13,7 @@ logs/
 # Model artifacts
 *.zip
 
-
+.DS_Store
 
 .DS_Store
 
