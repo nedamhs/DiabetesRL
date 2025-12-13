@@ -18,4 +18,8 @@ def improved_reward(BG_last_hour):
     if G < 70:     # mild hypo
         reward -= 0.2
     if G < 55:     # more hypo
-   
+        reward -= 0.2
+    if G > 250:    # mild hyper
+        reward -= 0.2
+ 
+    return reward
