@@ -160,4 +160,34 @@ class StackObsWrapper(gym.ObservationWrapper):
         orig_low = orig_space.low
         orig_high = orig_space.high
 
-        stacked_low = np.tile(orig_low,
+        stacked_low = np.tile(orig_low, k)
+        stacked_high = np.tile(orig_high, k)
+
+        self.observation_space = gym.spaces.Box(
+            low=stacked_low,
+            high=stacked_high,
+            dtype=np.float32,
+        )
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        obs = np.array(obs, dtype=np.float32)
+
+        self.buffer.clear()
+        for _ in range(self.k):
+            self.buffer.append(obs.copy())
+
+        stacked = np.concatenate(list(self.buffer), axis=-1)
+        return stacked, info
+
+    def observation(self, obs):
+        obs = np.array(obs, dtype=np.float32)
+
+        if len(self.buffer) == 0:
+            for _ in range(self.k):
+                self.buffer.append(obs.copy())
+        else:
+            self.buffer.append(obs.copy())
+
+        stacked = np.concatenate(list(self.buffer), axis=-1)
+        return stacked
