@@ -2,51 +2,44 @@
 import random
 import numpy as np
 import torch
-
+import matplotlib.pyplot as plt
 
 SEED = 1
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
-def display_episode(env, policy_fn, steps=480):
+
+# plots provided by  env.render() of simglucose 
+def display_episode(env, policy, steps=480, seed=None, verbose=False, render=True, deterministic=True):
     """
-    Runs and displays a full episode using the given policy.
-    Used for visualizing baselines (random, zero insulin, etc.).
-    
-    policy_fn: function mapping obs -> action
-               e.g., lambda obs: env.action_space.sample()
+    Run + (optionally) render one episode and print summary metrics.
+
+    Works with:
+      1) callable policy:        policy(obs) -> action
+      2) SB3 model policy:       policy.predict(obs, deterministic=...) -> (action, state)
+
+    Args
+      env: gymnasium env (already wrapped however you want: vanilla or stacked)
+      policy: callable or SB3 model (PPO, RecurrentPPO, etc.)
+      steps: max steps (480 = 24h if 3 min/step)
+      seed: reset seed (if None, don't pass a seed)
+      verbose: print per-step lines (BG, reward, action)
+      render: call env.render() each step
+      deterministic: for SB3 predict(...)
+
+    Returns
+      dict with rewards, bg_values, TIR/TBR/TAR, steps_survived, hours, etc.
     """
-    obs, info = env.reset(seed=SEED)
+    # reset (gymnasium style)
+    if seed is None:
+        obs, info = env.reset()
+    else:
+        obs, info = env.reset(seed=seed)
+
     rewards = []
     bg_values = []
+    insulin_list = []
 
-    for t in range(steps):
-        env.render()
-
-        action = policy_fn(obs)
-        obs, reward, terminated, truncated, info = env.step(action)
-
-        bg = info.get("bg")
-        rewards.append(float(reward))
-        bg_values.append(bg)
-
-        if terminated or truncated:
-            break
-
-    # Compute metrics
-    bg_arr = np.array([b for b in bg_values if b is not None], dtype=float)
-    TIR = np.mean((bg_arr >= 70) & (bg_arr <= 180)) * 100
-    TBR = np.mean(bg_arr < 70) * 100
-    TAR = np.mean(bg_arr > 180) * 100
-
-    # Convert steps to minutes and hours
-    minutes = len(rewards) * 3
-    hours = minutes / 60.0
-
-    print("\n--- Summary ---")
-    print(f"Steps survived: {len(rewards)}  ({minutes} min, {hours:.2f} hours)\n")
-
-    print(f"Time In Range   (70–180 mg/dL): {TIR:.2f}%")
-    print(f"Time Below Range (<70 mg/dL):   {TBR:.2f}%")
-    print(f"Time Above Range (>180 mg/dL):  {TAR:.2f}%")
+    # detect SB3-like model by presence of .predict
+    is_sb

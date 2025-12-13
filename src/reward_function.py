@@ -1,4 +1,8 @@
 def improved_reward(BG_last_hour):
+
+    if BG_last_hour is None or len(BG_last_hour) < 2:
+        return 0.0
+
     G_prev = BG_last_hour[-2]
     G = BG_last_hour[-1]
 
@@ -17,5 +21,5 @@ def improved_reward(BG_last_hour):
         reward -= 0.2
     if G > 250:    # mild hyper
         reward -= 0.2
-
  
+    return reward

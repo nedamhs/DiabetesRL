@@ -1,5 +1,5 @@
-gym==0.9.4
 gymnasium==0.29.1
+gym==0.9.4
 ipykernel==7.1.0
 ipython==9.8.0
 matplotlib==3.10.0
