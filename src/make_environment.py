@@ -38,21 +38,3 @@ def make_env_stacked(seed=SEED, render=False, k=4):
     base = FeatureWrapper(base)
     base = StackObsWrapper(base, k=k)
     return base
-
-
-# same as above, but used to make env for out of sample patients 
-def make_env_stacked_for_patient(patient_name, k=4, render=False):
-    if render:
-        base = gym.make(env_id, render_mode="human", patient_name=patient_name)
-    else:
-        base = gym.make(env_id, patient_name=patient_name)
-
-    base.reset(seed=SEED)
-    base.action_space.seed(SEED)
-
-    base = ActionclipWrapper(base, low=0.0, high=1.0)
-    base = FeatureWrapper(base)
-    base = StackObsWrapper(base, k=k)   
-
-    return base
-

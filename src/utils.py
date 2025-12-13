@@ -284,6 +284,11 @@ def run_episode(policy_type,  env, model=None,const_action=None,  seed=None, max
 
 
 def evaluate_survival(policy_type, make_env_fn, model=None,  n_episodes=20, const_action=None, base_seed=100):
+    """
+    Evaluates a policy over multiple episodes (default: 20), each run with a
+    different random seed. Reports summary statistics for survival steps / minutes / hours  and
+    returns per-episode survival lengths.
+    """
     lengths = []
 
     if policy_type == "constant":
@@ -295,12 +300,11 @@ def evaluate_survival(policy_type, make_env_fn, model=None,  n_episodes=20, cons
         env = make_env_fn()
         seed = base_seed + ep
 
-        ep_len = run_episode(
-            policy_type=policy_type,
-            env=env,
-            model=model,
-            const_action=const_action,
-            seed=seed
+        ep_len = run_episode(policy_type=policy_type,
+                            env=env,
+                            model=model,
+                            const_action=const_action,
+                            seed=seed
         )
         lengths.append(ep_len)
 
