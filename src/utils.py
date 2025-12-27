@@ -11,6 +11,7 @@ torch.manual_seed(SEED)
 
 
 # plots provided by  env.render() of simglucose 
+# TODO: make it compaitble with recurrent ppo
 def display_episode(env, policy, steps=480, seed=None, verbose=False, render=True, deterministic=True):
     """
     Run + (optionally) render one episode and print summary metrics.
@@ -31,7 +32,7 @@ def display_episode(env, policy, steps=480, seed=None, verbose=False, render=Tru
     Returns
       dict with rewards, bg_values, TIR/TBR/TAR, steps_survived, hours, etc.
     """
-    # reset (gymnasium style)
+    # reset 
     if seed is None:
         obs, info = env.reset()
     else:
@@ -41,7 +42,7 @@ def display_episode(env, policy, steps=480, seed=None, verbose=False, render=Tru
     bg_values = []
     insulin_list = []
 
-    # detect SB3-like model by presence of .predict
+    # detect SB3 model by presence of .predict
     is_sb3 = hasattr(policy, "predict")
 
     for t in range(steps):
@@ -60,7 +61,6 @@ def display_episode(env, policy, steps=480, seed=None, verbose=False, render=Tru
         rewards.append(float(reward))
         bg_values.append(bg)
 
-        # action can be array-like (Box(1,)) or scalar
         try:
             insulin_list.append(float(np.asarray(action).squeeze()))
         except Exception:
@@ -104,8 +104,7 @@ def display_episode(env, policy, steps=480, seed=None, verbose=False, render=Tru
     }
 
 
-
-def eval_and_plot_policy(model, make_env_fn, n_episodes=1):
+def eval_and_plot_policy(model, make_env_fn, n_episodes=1, recurrent=False):
     """
     Evaluates a PPO policy with deterministic rollouts (480 steps per episode),
     converts normalized CGM to mg/dL, prints action statistics and CGM–action
@@ -118,12 +117,26 @@ def eval_and_plot_policy(model, make_env_fn, n_episodes=1):
         env = make_env_fn()
         obs, _ = env.reset(seed=SEED + ep)
 
+        # Recurrent state 
+        lstm_state = None
+        episode_start = np.array([True], dtype=bool)
+
+
         total_reward = 0.0
         for _ in range(480):
-            action, _ = model.predict(obs, deterministic=True)
+            if recurrent:
+                action, lstm_state = model.predict(
+                    obs,
+                    state=lstm_state,
+                    episode_start=episode_start,
+                    deterministic=True,
+                )
+            else:
+                action, _ = model.predict(obs, deterministic=True)
+
             a = float(np.array(action).flatten()[0])
 
-            # obs[0] is normalized CGM → convert to mg/dL
+            # obs[0] is normalized CGM --> unnormalize 
             cgm = float(obs[0] * 400.0)
 
             acts.append(a)
@@ -131,8 +144,14 @@ def eval_and_plot_policy(model, make_env_fn, n_episodes=1):
 
             obs, reward, term, trunc, _ = env.step(action)
             total_reward += float(reward)
-            if term or trunc:
+
+            done = bool(term or trunc)
+            if recurrent:
+                episode_start = np.array([done], dtype=bool)
+
+            if done:
                 break
+
 
         ep_returns.append(total_reward)
 
@@ -162,14 +181,21 @@ def eval_and_plot_policy(model, make_env_fn, n_episodes=1):
 
 
 # my custom plots 
-def rollout_and_plot_day(model, make_env_fn, max_steps=480):
+def rollout_and_plot_day(model, make_env_fn, max_steps=480, recurrent=False):
     """
     Roll out one 24-hour simulation (3-min steps),
     compute BG statistics, and plot BG/CGM, insulin,
     reward, and meals vs time (hours).
+
+    If recurrent=True for Recurrent model
+    maintains LSTM state + episode_start.
     """
     env = make_env_fn()
     obs, info = env.reset(seed=SEED)
+
+    #  Recurrent state 
+    lstm_state = None
+    episode_start = np.array([True], dtype=bool)
 
     bg_list, cgm_list = [], []
     insulin_list, reward_list, meal_list = [], [], []
@@ -179,7 +205,16 @@ def rollout_and_plot_day(model, make_env_fn, max_steps=480):
         cgm = float(obs[0]) * 400.0
         cgm_list.append(cgm)
 
-        action, _ = model.predict(obs, deterministic=True)
+        if recurrent:
+            action, lstm_state = model.predict(
+                                obs,
+                                state=lstm_state,
+                                episode_start=episode_start,
+                                deterministic=True,
+                            )
+        else:
+                action, _ = model.predict(obs, deterministic=True)
+
         obs, reward, terminated, truncated, info = env.step(action)
 
         # True BG
@@ -191,6 +226,13 @@ def rollout_and_plot_day(model, make_env_fn, max_steps=480):
         insulin_list.append(float(np.array(action).flatten()[0]))
         reward_list.append(float(reward))
         meal_list.append(float(info.get("meal", 0.0)))
+
+
+        done = bool(terminated or truncated)
+
+        if recurrent:
+            episode_start = np.array([done], dtype=bool)
+
 
         if terminated or truncated:
             break
@@ -237,7 +279,7 @@ def rollout_and_plot_day(model, make_env_fn, max_steps=480):
     axs[3].set_ylabel("Meal (g CHO)")
     axs[3].set_xlabel("Time (hours)")
 
-    axs[3].set_xticks(np.arange(0, 25, 4))  # 0,4,8,...,24
+    axs[3].set_xticks(np.arange(0, 25, 4))  
 
     plt.tight_layout()
     plt.show()
@@ -246,11 +288,9 @@ def rollout_and_plot_day(model, make_env_fn, max_steps=480):
 
 
 # ======================= functions for evaluating of patient 1 over multiple episodes ==================
-
-
 def run_episode(policy_type,  env, model=None,const_action=None,  seed=None, max_steps=480):
     """
-    policy_type: "ppo", "stacked ppo", "random", or "constant"
+    policy_type: "ppo", "stacked ppo", "recurrent ppo", "random", or "constant"
     """
     if seed is not None:
         obs, info = env.reset(seed=seed)
@@ -260,10 +300,23 @@ def run_episode(policy_type,  env, model=None,const_action=None,  seed=None, max
     steps = 0
     done = False
 
+    # Recurrent state 
+    lstm_state = None
+    episode_start = np.array([True], dtype=bool)
+
     while (not done) and steps < max_steps:
         if policy_type in ("ppo", "stacked ppo"):
             assert model is not None, f"{policy_type} needs a trained model."
             action, _ = model.predict(obs, deterministic=True)
+
+        elif policy_type == "recurrent ppo":
+            assert model is not None, "recurrent ppo needs a trained model."
+            action, lstm_state = model.predict(
+                obs,
+                state=lstm_state,
+                episode_start=episode_start,
+                deterministic=True,
+            )
 
         elif policy_type == "random":
             action = env.action_space.sample()
@@ -278,6 +331,9 @@ def run_episode(policy_type,  env, model=None,const_action=None,  seed=None, max
         obs, reward, terminated, truncated, info = env.step(action)
         steps += 1
         done = bool(terminated or truncated)
+
+        if policy_type == "recurrent ppo":
+            episode_start = np.array([done], dtype=bool)
 
     return steps
 
@@ -329,10 +385,12 @@ def evaluate_survival(policy_type, make_env_fn, model=None,  n_episodes=20, cons
 
 # ============================= functions for cross patient generalization test  ==================
 
-def rollout_one_patient( model, patient_name, make_env_fn, max_minutes=24*60,):
+def rollout_one_patient( model, patient_name, make_env_fn, max_minutes=24*60,recurrent=False,):
     """
     make_env_fn: function(patient_name) -> env
       e.g. lambda p: make_env_stacked_for_patient(p, k=4, render=False)
+
+    recurrent: if True, assumes a RecurrentPPO and maintains LSTM state.
     """
     env = make_env_fn(patient_name)
     obs, info = env.reset(seed=SEED)
@@ -342,8 +400,20 @@ def rollout_one_patient( model, patient_name, make_env_fn, max_minutes=24*60,):
 
     max_steps = max_minutes // 3  # 3 min per step
 
+    # Recurrent state 
+    lstm_state = None
+    episode_start = np.array([True], dtype=bool)
+
     for t in range(max_steps):
-        action, _ = model.predict(obs, deterministic=True)
+        if recurrent:
+            action, lstm_state = model.predict(
+                obs,
+                state=lstm_state,
+                episode_start=episode_start,
+                deterministic=True,
+            )
+        else:
+            action, _ = model.predict(obs, deterministic=True)
 
         obs, reward, terminated, truncated, info = env.step(action)
         episode_done = bool(terminated or truncated)
@@ -352,6 +422,9 @@ def rollout_one_patient( model, patient_name, make_env_fn, max_minutes=24*60,):
         bg_list.append(bg)
 
         act_list.append(float(np.array(action).flatten()[0]))
+
+        if recurrent:
+            episode_start = np.array([episode_done], dtype=bool)
 
         if episode_done:
             break
@@ -376,10 +449,10 @@ def rollout_one_patient( model, patient_name, make_env_fn, max_minutes=24*60,):
 
 
 
-def eval_group(model, patient_ids, make_env_fn):
+def eval_group(model, patient_ids, make_env_fn, recurrent=False):
     out = []
     for pid in patient_ids:
-        bg, act, stats = rollout_one_patient(model=model, patient_name=pid, make_env_fn=make_env_fn )
+        bg, act, stats = rollout_one_patient(model=model, patient_name=pid, make_env_fn=make_env_fn, recurrent=recurrent)
         out.append((pid, stats))
     return out
 
