@@ -12,7 +12,7 @@ Agents are trained on a single Adult patient.
 
 ## observation representation 
 
-observation space for ppo and recurrent ppo model is extended to handle partial observability:
+observation space for ppo and recurrent ppo model is extended by adding features to handle partial observability:
 
 **[normalized CGM,   time-of-day (minutes),   binary meal flag,   CGM slope]**
 
