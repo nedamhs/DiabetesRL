@@ -71,6 +71,14 @@ Trained on a single adult patient, and evaluated on all adults, adolescents, and
 For more details of results and experiments, see  [project.ipynb](project.ipynb).
 
 
+
+## Notes
+
+Project was done for my CS175 (project in AI) class at UCI. see  [Report](FinalReport.pdf).
+
+** Recurrent PPO training is not stable yet.
+
+
 ## Project Structure
 
 
