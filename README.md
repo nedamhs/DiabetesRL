@@ -1,6 +1,6 @@
 # DiabetesRL
  
-DiabetesRL explores reinforcement learning approaches for automated insulin control in Type-1 diabetes patients using the [SimGlucose](https://github.com/jxx123/simglucose) simulator.
+This Project explores reinforcement learning approaches for automated insulin control in Type-1 diabetes patients using the [SimGlucose](https://github.com/jxx123/simglucose) simulator.
 
 The goal is to keep the patient alive and in safe glucose range over a 24 hour simulation by deciding how much insulin to give to the patient at each glucose level. 
 
@@ -12,12 +12,12 @@ Agents are trained on a single Adult patient.
 
 ## observation representation 
 
-observation space for ppo and recurrent ppo model is extended by adding features to handle partial observability:
+observation space is extended by adding features to handle partial observability:
 
 **[normalized CGM,   time-of-day (minutes),   binary meal flag,   CGM slope]**
 
 
-observation space for the stacked ppo includes past k = 4 observations. 
+The stacked PPO uses a fixed-length deque as a sliding window over the past k = 4 observations, concatenating them into a single vector to provide short-term temporal context.
 
 ## reward function 
 
@@ -27,7 +27,7 @@ The reward function encourages glucose to stay in a stable range by penalizing d
 
 ## Results 
 
-* evaluated on the training patient over a single episode (24 hour ismulation)
+* evaluated on the training patient over a single episode (24 hour simulation)
 
 
 | Model           | Hours Survived | Time in Range (70–180 mg/dL) | Time Below Range (< 70 mg/dL) | Time Above Range (> 180 mg/dL) |
@@ -41,7 +41,7 @@ The reward function encourages glucose to stay in a stable range by penalizing d
 
 ### Survival Evaluation.
 
-* evaluated on the training patient over a 20 episode (20 x 24 hour simulation)
+* evaluated on the training patient over 20 episodes (20 x 24 hour simulation)
 
 * each step is 3 minutes.
 
@@ -74,7 +74,7 @@ For more details of results and experiments, see  [project.ipynb](project.ipynb)
 
 ## Notes
 
-Project was done for my CS175 (project in AI) class at UCI. see  [Report](FinalReport.pdf).
+Project was completed independently for my CS175 (project in AI) class at UCI. see  [Report](FinalReport.pdf).
 
 ** Recurrent PPO training is not stable yet.
 
