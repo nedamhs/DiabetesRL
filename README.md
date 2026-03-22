@@ -1,3 +1,5 @@
+<!--
+
 # DiabetesRL
  
 This Project explores reinforcement learning approaches for automated insulin control in Type-1 diabetes patients using the [SimGlucose](https://github.com/jxx123/simglucose) simulator.
@@ -77,6 +79,86 @@ For more details of results and experiments, see  [project.ipynb](project.ipynb)
 Project was completed independently for my CS175 (project in AI) class at UCI. see  [Report](FinalReport.pdf).
 
 ** Recurrent PPO training is not stable yet.
+
+
+--> 
+
+# DiabetesRL
+ 
+This Project explores reinforcement learning approaches for automated insulin control in Type-1 diabetes patients using the [SimGlucose](https://github.com/jxx123/simglucose) simulator.
+
+The goal is to keep the patient alive and in safe glucose range over a 24 hour simulation by deciding how much insulin to give to the patient at each glucose level. 
+
+The project uses and evaluates PPO-based agents including PPO, PPO with stacked observation space to see how incorporating past observations helps the agent.
+
+Agents are trained on a single Adult patient. 
+
+
+
+## observation representation 
+
+observation space is extended by adding features to handle partial observability:
+
+**[normalized CGM,   time-of-day (minutes),   binary meal flag,   CGM slope]**
+
+
+The stacked PPO uses a fixed-length deque as a sliding window over the past k = 4 observations, concatenating them into a single vector to provide short-term temporal context.
+
+## reward function 
+
+The reward function encourages glucose to stay in a stable range by penalizing distance from the target blood glucose (110 mg/dL), adding a bonus when glucose moves toward 110, and applying mild penalties for severe
+**Hyperglycemia** (> 250 mg/dL) and stronger penalties for **Hypoglycemia** (< 70 mg/dL).
+
+
+## Results 
+
+* evaluated on the training patient over a single episode (24 hour simulation)
+
+
+| Model           | Hours Survived | Time in Range (70–180 mg/dL) | Time Below Range (< 70 mg/dL) | Time Above Range (> 180 mg/dL) |
+|-----------------|----------------|------------------------------|-------------------------------|--------------------------------|
+| PPO             | 11.55 hr       | 35.93%                       | 64.07%                        | 0.00%                          |
+| Stacked PPO     | 22.50 hr       | 42.92%                       | 57.08%                        | 0.00%                          |
+
+
+
+## Experiments
+
+### Survival Evaluation.
+
+* evaluated on the training patient over 20 episodes (20 x 24 hour simulation)
+
+* each step is 3 minutes.
+
+
+| Model          | Mean Steps | Mean Hours | Std (steps) |
+|----------------|-----------:|-----------:|------------:|
+| PPO            | 231.1      | 11.55      | 0.4         |
+| Stacked PPO    | 464.1      | 23.21      | 14.2        |
+
+
+
+### cross patient generalizability experiment.
+
+Trained on a single adult patient, and evaluated on all adults, adolescents, and children, to assess how well the policy generalizes to other patients.
+
+* table shows mean hours survived per age group.
+
+| Patient Group | Stacked PPO (hours) |
+|--------------|---------------------:|
+| Adult (n=10) | 19.15                |
+| Adolescent (n=10) | 8.88            |
+| Child (n=10) | 8.35                 | 
+
+
+
+For more details of results and experiments, see  [project.ipynb](project.ipynb).
+
+
+
+## Notes
+
+Project was completed independently for my CS175 (project in AI) class at UCI. see  [Report](FinalReport.pdf).
 
 
 ## Project Structure
